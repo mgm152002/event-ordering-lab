@@ -12,6 +12,7 @@ Rules:
 
 Usage:
     python3 order_simulation.py ordering
+    python3 order_simulation.py missing
     python3 order_simulation.py all
 
 Standard library only. No dependencies, no helper files.
@@ -122,14 +123,43 @@ def demo_ordering() -> None:
           f"Duplicates ignored: {state.duplicates_ignored}.")
 
 
+def demo_missing() -> None:
+    """Only later versions arrive. Nothing may jump ahead."""
+    print("=== Test 2: missing event ===")
+    print("Order ORD-2001. Only v2 and v3 arrive; v1 never arrives.")
+    state = OrderState("ORD-2001")
+    deliveries = [
+        OrderEvent("ORD-2001", 2, "PAID"),
+        OrderEvent("ORD-2001", 3, "SHIPPED"),
+    ]
+    for step, event in enumerate(deliveries, 1):
+        print(f"[{step}] RECEIVED order_id={event.order_id} "
+              f"version={event.version} status={event.status}")
+        state.receive(event)
+    print(f"FINAL order_id={state.order_id} version={state.version} "
+          f"status={state.status} applied={state.applied} "
+          f"pending={state.pending_versions()}")
+    print(f"Missing versions: {state.missing_versions()}. "
+          f"Pending: {state.pending_versions()}.")
+    print("Order did NOT jump ahead: version stayed 0, "
+          "status stayed NONE.")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Order event-ordering simulation.")
     parser.add_argument("demo", nargs="?", default="all",
-                        choices=["ordering", "all"],
+                        choices=["ordering", "missing", "all"],
                         help="which demo to run (default: all)")
     args = parser.parse_args()
-    demo_ordering()
+    if args.demo == "ordering":
+        demo_ordering()
+    elif args.demo == "missing":
+        demo_missing()
+    else:
+        demo_ordering()
+        print()
+        demo_missing()
 
 
 if __name__ == "__main__":
