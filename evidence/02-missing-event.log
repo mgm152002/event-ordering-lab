@@ -1,0 +1,12 @@
+$ python3 order_simulation.py missing
+=== Test 2: missing event ===
+Order ORD-2001. Only v2 and v3 arrive; v1 never arrives.
+[1] RECEIVED order_id=ORD-2001 version=2 status=PAID
+    BUFFERED: waiting for version 1. Missing: [1]. Pending: [2].
+    State unchanged: version=0 status=NONE
+[2] RECEIVED order_id=ORD-2001 version=3 status=SHIPPED
+    BUFFERED: waiting for version 1. Missing: [1]. Pending: [2, 3].
+    State unchanged: version=0 status=NONE
+FINAL order_id=ORD-2001 version=0 status=NONE applied=[] pending=[2, 3]
+Missing versions: [1]. Pending: [2, 3].
+Order did NOT jump ahead: version stayed 0, status stayed NONE.

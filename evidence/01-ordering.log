@@ -1,0 +1,14 @@
+$ python3 order_simulation.py ordering
+=== Test 1: versioned event ordering ===
+Order ORD-1001. Delivery order: v2, v1, v2 again.
+Expected apply order: v1 CREATED, then v2 PAID.
+[1] RECEIVED order_id=ORD-1001 version=2 status=PAID
+    BUFFERED: waiting for version 1. Missing: [1]. Pending: [2].
+    State unchanged: version=0 status=NONE
+[2] RECEIVED order_id=ORD-1001 version=1 status=CREATED
+    APPLIED version=1 status=CREATED
+    APPLIED buffered version=2 status=PAID
+[3] RECEIVED order_id=ORD-1001 version=2 status=PAID
+    IGNORED duplicate: version 2 already applied (current version=2).
+FINAL order_id=ORD-1001 version=2 status=PAID applied=[1, 2] pending=[]
+Applied in order: 1 -> 2. Duplicates ignored: 1.

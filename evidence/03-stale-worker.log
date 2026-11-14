@@ -1,0 +1,17 @@
+$ python3 order_simulation.py stale
+=== Test 3: stale worker (fencing tokens) ===
+Order ORD-3001. worker-A token=1, worker-B token=2.
+Higher token wins; the older token is rejected.
+[1] worker-A (token=1) sends order_id=ORD-3001 version=1 status=CREATED
+    Fencing token advanced: 0 -> 1 (worker-A).
+    APPLIED version=1 status=CREATED
+[2] worker-B (token=2) sends order_id=ORD-3001 version=2 status=PAID
+    Fencing token advanced: 1 -> 2 (worker-B).
+    APPLIED version=2 status=PAID
+[3] worker-A (token=1) sends order_id=ORD-3001 version=3 status=SHIPPED
+    REJECTED stale worker: token 1 < current token 2. Update dropped.
+[4] worker-B (token=2) sends order_id=ORD-3001 version=3 status=SHIPPED
+    APPLIED version=3 status=SHIPPED
+FINAL order_id=ORD-3001 version=3 status=SHIPPED applied=[1, 2, 3] pending=[]
+Fencing token=2. Stale updates rejected: 1.
+Stale worker-A update rejected; current worker-B update applied.
