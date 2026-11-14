@@ -9,10 +9,14 @@ Rules:
 - An event is applied only when its version is the next expected one.
 - A future version is buffered until the missing versions arrive.
 - A version at or below the applied version is a duplicate: ignored.
+- Each worker carries an increasing fencing token. An update from a
+  worker whose token is below the highest token seen for that order
+  is a stale worker and is rejected before any version check.
 
 Usage:
     python3 order_simulation.py ordering
     python3 order_simulation.py missing
+    python3 order_simulation.py stale
     python3 order_simulation.py all
 
 Standard library only. No dependencies, no helper files.
@@ -100,6 +104,45 @@ class OrderState:
         return "applied"
 
 
+@dataclass(frozen=True)
+class Worker:
+    """A worker identity. Tokens only increase; old holders go stale."""
+
+    name: str
+    token: int
+
+
+class OrderStore:
+    """Holds order states and the fencing token seen per order."""
+
+    def __init__(self) -> None:
+        self.orders: dict[str, OrderState] = {}
+        self.fencing: dict[str, int] = {}
+        self.rejected_stale = 0
+
+    def state_for(self, order_id: str) -> OrderState:
+        if order_id not in self.orders:
+            self.orders[order_id] = OrderState(order_id)
+        return self.orders[order_id]
+
+    def fencing_token(self, order_id: str) -> int:
+        return self.fencing.get(order_id, 0)
+
+    def update(self, worker: Worker, event: OrderEvent) -> str:
+        """Fencing check first, then versioned apply. Outcome lines only."""
+        current = self.fencing_token(event.order_id)
+        if worker.token < current:
+            self.rejected_stale += 1
+            print(f"    REJECTED stale worker: token {worker.token} "
+                  f"< current token {current}. Update dropped.")
+            return "stale"
+        if worker.token > current:
+            self.fencing[event.order_id] = worker.token
+            print(f"    Fencing token advanced: {current} -> "
+                  f"{worker.token} ({worker.name}).")
+        return self.state_for(event.order_id).receive(event)
+
+
 def demo_ordering() -> None:
     """Delivery order v2, v1, v2 again. Apply order must be v1, v2."""
     print("=== Test 1: versioned event ordering ===")
@@ -145,21 +188,54 @@ def demo_missing() -> None:
           "status stayed NONE.")
 
 
+def demo_stale() -> None:
+    """Two workers, one order. The older fencing token loses."""
+    print("=== Test 3: stale worker (fencing tokens) ===")
+    print("Order ORD-3001. worker-A token=1, worker-B token=2.")
+    print("Higher token wins; the older token is rejected.")
+    store = OrderStore()
+    worker_a = Worker("worker-A", 1)
+    worker_b = Worker("worker-B", 2)
+    steps = [
+        (worker_a, OrderEvent("ORD-3001", 1, "CREATED")),
+        (worker_b, OrderEvent("ORD-3001", 2, "PAID")),
+        (worker_a, OrderEvent("ORD-3001", 3, "SHIPPED")),
+        (worker_b, OrderEvent("ORD-3001", 3, "SHIPPED")),
+    ]
+    for step, (worker, event) in enumerate(steps, 1):
+        print(f"[{step}] {worker.name} (token={worker.token}) sends "
+              f"order_id={event.order_id} version={event.version} "
+              f"status={event.status}")
+        store.update(worker, event)
+    state = store.state_for("ORD-3001")
+    print(f"FINAL order_id={state.order_id} version={state.version} "
+          f"status={state.status} applied={state.applied} "
+          f"pending={state.pending_versions()}")
+    print(f"Fencing token={store.fencing_token('ORD-3001')}. "
+          f"Stale updates rejected: {store.rejected_stale}.")
+    print("Stale worker-A update rejected; current worker-B "
+          "update applied.")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Order event-ordering simulation.")
     parser.add_argument("demo", nargs="?", default="all",
-                        choices=["ordering", "missing", "all"],
+                        choices=["ordering", "missing", "stale", "all"],
                         help="which demo to run (default: all)")
     args = parser.parse_args()
     if args.demo == "ordering":
         demo_ordering()
     elif args.demo == "missing":
         demo_missing()
+    elif args.demo == "stale":
+        demo_stale()
     else:
         demo_ordering()
         print()
         demo_missing()
+        print()
+        demo_stale()
 
 
 if __name__ == "__main__":
