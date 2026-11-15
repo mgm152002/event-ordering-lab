@@ -67,6 +67,8 @@ Applied in order: 1 -> 2. Duplicates ignored: 1.
 Version 2 arrived first and waited. Version 1 was applied, then the
 buffered version 2 drained. Applied order is 1, then 2.
 
+![Versioned event ordering](screenshots/01-ordering.png)
+
 ## Evidence: duplicate handling
 
 Same run, delivery [3] above: version 2 arrives a second time after it
@@ -96,6 +98,8 @@ Order did NOT jump ahead: version stayed 0, status stayed NONE.
 Neither later version was applied. Version 1 is recorded as missing,
 versions 2 and 3 stay pending, and the order stays at version 0.
 
+![Missing event](screenshots/02-missing-event.png)
+
 ## Evidence: stale-worker rejection
 
 `python3 order_simulation.py stale`. Full log:
@@ -123,6 +127,8 @@ Stale worker-A update rejected; current worker-B update applied.
 The worker with the newer token (worker-B, token 2) updates the order.
 The stale worker-A update with the older token (1) is rejected and
 dropped before any version check.
+
+![Stale-worker rejection](screenshots/03-stale-worker.png)
 
 ## Reflection: why timestamps alone are not enough
 
